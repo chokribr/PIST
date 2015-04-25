@@ -1,5 +1,5 @@
 ## This file is part of Invenio.
-## Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2014, 2015 CERN.
+## Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2014 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -18,6 +18,7 @@
 __revision__ = "$Id$"
 
 import urllib
+import urlparse
 import cgi
 
 from invenio.config import \
@@ -40,11 +41,11 @@ from invenio.access_control_config import CFG_EXTERNAL_AUTH_USING_SSO, \
         CFG_OAUTH1_PROVIDERS, CFG_OPENID_AUTHENTICATION, \
         CFG_OAUTH2_AUTHENTICATION, CFG_OAUTH1_AUTHENTICATION
 
-from invenio.urlutils import make_canonical_urlargd, create_url, create_html_link
+from invenio.urlutils import make_canonical_urlargd, create_url, create_html_link, wash_url_argument, get_title_of_page
 from invenio.htmlutils import escape_html, nmtoken_from_string
 from invenio.messages import gettext_set_language, language_list_long
 from invenio.websession_config import CFG_WEBSESSION_GROUP_JOIN_POLICY, \
-                                      CFG_WEBSESSION_USERGROUP_STATUS
+      CFG_WEBSESSION_USERGROUP_STATUS
 
 
 class Template:
@@ -973,8 +974,8 @@ class Template:
                 {'x_url_open': '<a href="./login?ln=' + ln + '">',
                  'x_url_close': '</a>'}
         return out
-
-    def tmpl_login_form(self, ln, referer, internal, register_available, methods, selected_method, msg=None):
+#   chokri
+    def tmpl_login_form(self, ln, referer, internal, register_available, methods, selected_method, attempt, msg=None):
         """
         Displays a login form
 
@@ -993,6 +994,7 @@ class Template:
           - 'selected_method' *string* - The default authentication method
 
           - 'msg' *string* - The message to print before the form, if needed
+          -attempt  *number* - The number of login attempt
         """
 
         # load the right message language
@@ -1022,7 +1024,7 @@ class Template:
         else:
             out += "<p>%s</p>" % msg
 
-        out += """<form method="post" action="%(CFG_SITE_SECURE_URL)s/youraccount/login">
+        out += """<form method="get" action="%(CFG_SITE_SECURE_URL)s/youraccount/login">
                   <table>
                """ % {'CFG_SITE_SECURE_URL': CFG_SITE_SECURE_URL}
         if len(methods) - CFG_OPENID_AUTHENTICATION - CFG_OAUTH2_AUTHENTICATION - CFG_OAUTH1_AUTHENTICATION > 1:
@@ -1052,6 +1054,7 @@ class Template:
                    <td align="right">
                      <input type="hidden" name="ln" value="%(ln)s" />
                      <input type="hidden" name="referer" value="%(referer)s" />
+                     <input type="hidden" name="attempt" value="%(attempt)s" />
                      <strong><label for="p_un">%(username)s:</label></strong>
                    </td>
                    <td><input type="text" size="25" name="p_un" id="p_un" value="" /></td>
@@ -1072,6 +1075,7 @@ class Template:
                        'password' : cgi.escape(_("Password")),
                        'remember_me' : cgi.escape(_("Remember login on this computer.")),
                        'login' : cgi.escape(_("login")),
+                       'attempt':attempt,
                        }
         if internal:
             out += """&nbsp;&nbsp;&nbsp;(<a href="./lost?ln=%(ln)s">%(lost_pass)s</a>)""" % {
@@ -1318,7 +1322,7 @@ class Template:
                     'x_url_close': '</a>'}
         return out
 
-    def tmpl_create_userinfobox(self, ln, url_referer, guest, username, submitter, referee, admin, usebaskets, usemessages, usealerts, usegroups, useloans, usestats):
+    def tmpl_create_userinfobox(self, ln, url_referer, guest, username, submitter, referee, admin, usebaskets, usemessages, usealerts, usegroups, useloans, usestats, attempt):
         """
         Displays the user block
 
@@ -1349,6 +1353,7 @@ class Template:
           - 'useloans' *boolean* - If loans are enabled for the user
 
           - 'usestats' *boolean* - If stats are enabled for the user
+          - 'attempt' *number* - the number of login attempt
 
         @note: with the update of CSS classes (cds.cds ->
             invenio.css), the variables useloans etc are not used in
@@ -1362,13 +1367,15 @@ class Template:
 
         out = """<img src="%s/img/user-icon-1-20x20.gif" border="0" alt=""/> """ % CFG_SITE_URL
         if guest:
+          
             out += """%(guest_msg)s ::
-                   <a class="userinfo" href="%(sitesecureurl)s/youraccount/login?ln=%(ln)s%(referer)s">%(login)s</a>""" % {
+                   <a class="userinfo" href="%(sitesecureurl)s/youraccount/login?ln=%(ln)s&attempt=%(attempt)s%(referer)s">%(login)s</a>""" % {
                      'sitesecureurl': CFG_SITE_SECURE_URL,
                      'ln' : ln,
                      'guest_msg' : _("guest"),
                      'referer' : url_referer and ('&amp;referer=%s' % urllib.quote(url_referer)) or '',
-                     'login' : _('login')
+                     'login' : _('login'),
+                     'attempt' : attempt,
                    }
         else:
             out += """
@@ -1880,8 +1887,11 @@ class Template:
         <img src="%(siteurl)s/img/%(img)s" alt="%(text)s" style="border:0" width="25"
         height="25" /><br /><small>%(text)s</small>
         </a>"""
+
+
         out = self.tmpl_group_table_title(img="/img/group_admin.png",
-                                          text=_("You are a moderator of the following groups:"))
+                                          text=_("You are a moderator of the following groups:") )
+
         out += """
 <table class="mailbox">
   <thead class="mailboxheader">
@@ -1889,6 +1899,7 @@ class Template:
       <td>%s</td>
       <td>%s</td>
       <td style="width: 20px;" >&nbsp;</td>
+      <td style="width: 20px;">&nbsp;</td>
     </tr>
   </thead>
   <tfoot>
@@ -1896,25 +1907,27 @@ class Template:
       <td></td>
       <td></td>
       <td></td>
+      <td></td>
     </tr>
   </tfoot>
-  <tbody class="mailboxbody">""" % (_("Group"), _("Description"))
+  <tbody class="mailboxbody">""" %(_("Group"), _("Description"))
         if len(groups) == 0:
             out += """
     <tr class="mailboxrecord" style="height: 100px;">
-      <td colspan="3" style="text-align: center;">
+      <td colspan="4" style="text-align: center;">
         <small>%s</small>
       </td>
-    </tr>""" % _("You are not a moderator of any groups.")
+    </tr>""" %(_("You are not a moderator of any groups."),)
         for group_data in groups:
             (grpID, name, description) = group_data
-            members_link = img_link % {'siteurl': CFG_SITE_URL,
-                                       'grpID': grpID,
+            members_link = img_link % {'siteurl' : CFG_SITE_URL,
+                                       'grpID' : grpID,
                                        'ln': ln,
-                                       'img': "webbasket_usergroup.png",
-                                       'text': _("Edit %s members") % '',
-                                       'action': "members"
+                                       'img':"webbasket_usergroup.png",
+                                       'text':_("Edit %s members") % '',
+                                       'action':"members"
                                        }
+             
             out += """
     <tr class="mailboxrecord">
       <td>%s</td>
@@ -1926,11 +1939,13 @@ class Template:
       <td></td>
       <td></td>
       <td></td>
+      <td></td>
     </tr>
   </tbody>
 </table>
  """
         return out
+
 
     def tmpl_display_input_group_info(self,
                                       group_name,
@@ -2312,11 +2327,12 @@ class Template:
             <td style="padding: 0 5 10 5;">
             <input type="submit" name="remove_member" value="%s" class="nonsubmitbutton"/>
             </td>""" %  (member_list,_("Remove member"))
-            if user_status == CFG_WEBSESSION_USERGROUP_STATUS['ADMIN']:
+            if user_status == CFG_WEBSESSION_USERGROUP_STATUS['ADMIN'] :
                 member_text += """<td style="padding: 0 5 10 5;">
                 <input type="submit" name="add_moderator" value="%s" class="nonsubmitbutton"/>
                 </td>""" % _("Add as moderator")
-        else:
+            
+        else :
             member_text = """<td style="padding: 0 5 10 5;" colspan="2">%s</td>""" % _("No members.")
         if pending_members :
             pending_list =   self.__create_select_menu("pending_member_id", pending_members, _("Please select:"))
@@ -2328,7 +2344,7 @@ class Template:
             <td style="padding: 0 5 10 5;">
             <input type="submit" name="reject_member" value="%s" class="nonsubmitbutton"/>
             </td>""" %  (pending_list,_("Accept member"), _("Reject member"))
-        else:
+        else :
             pending_text = """<td style="padding: 0 5 10 5;" colspan="2">%s</td>""" % _("No members awaiting approval.")
         moderator_text = ""        
         if user_status == CFG_WEBSESSION_USERGROUP_STATUS['ADMIN']:
@@ -2353,7 +2369,7 @@ class Template:
       <tr>
         <td colspan="2">
           <table>
-            <tr>""" % (CFG_SITE_URL, self.tmpl_group_table_title(text=_("Current moderators")))
+            <tr>""" % (CFG_SITE_URL,self.tmpl_group_table_title(text= _("Current moderators")))
             if moderator_members :
                 moderator_list = self.__create_select_menu("moderator_member_id", moderator_members, _("Please select:"))  
                 moderator_text += """            
@@ -2361,7 +2377,7 @@ class Template:
                 <td style="padding: 0 5 10 5;">
                 <input type="submit" name="remove_moderator" value="%s" class="nonsubmitbutton"/>
                </td>""" % (moderator_list,_("Remove moderator"))
-            else:
+            else :
                 moderator_text += """<td style="padding: 0 5 10 5;" colspan="2">%s</td>""" % _("No moderators.")
             moderator_text += """</tr>
           </table>
@@ -2374,6 +2390,7 @@ class Template:
         header1 = self.tmpl_group_table_title(text=_("Current members"))
         header2 = self.tmpl_group_table_title(text=_("Members awaiting approval"))
         header3 = _("Invite new members")
+        
         write_a_message_url = create_url(
             "%s/yourmessages/write" % CFG_SITE_URL,
             {
@@ -2728,8 +2745,8 @@ Best regards.
         return subject, body
 
     def tmpl_moderator_msg(self,
-                           group_name,
-                           ln=CFG_SITE_LANG):
+                        group_name,
+                        ln=CFG_SITE_LANG):
         """
         return message content when new moderator is added
         - 'group_name' *string* - name of the group
@@ -2738,13 +2755,13 @@ Best regards.
         _ = gettext_set_language(ln)
         subject = _("Group %s: You has been added as moderator") % (group_name)
         body = _("Your are choosen as a moderator for the group %s .") % (group_name)
+        
         url = CFG_SITE_URL + "/yourgroups/display?ln=" + ln
         body += '<br />'
         body += _("You can consult the list of %(x_url_open)syour groups%(x_url_close)s.") % {'x_url_open': '<a href="' + url + '">',
                                                                                               'x_url_close': '</a>'}
         body += '<br />'
         return subject, body
-
 
     def tmpl_group_info(self, nb_admin_groups=0, nb_member_groups=0, nb_total_groups=0, ln=CFG_SITE_LANG):
         """

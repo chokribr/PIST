@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2014, 2015 CERN.
+## Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2014 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -844,7 +844,7 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
                         language=args['ln'],
                         lastupdated=__lastupdated__,
                         navmenuid='youraccount')
-
+## chokri attempt
     def login(self, req, form):
         args = wash_urlargd(form, {
             'p_un': (str, None),
@@ -853,8 +853,18 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
             'provider': (str, None),
             'action': (str, ''),
             'remember_me' : (str, ''),
-            'referer': (str, '')})
+            'referer': (str, ''),
+            'attempt': (int, '')})
 
+       #attempt :number of login attempt
+        
+        
+        if  args['attempt']:
+            attempt =  args['attempt']
+           
+        else :
+            attempt = 0      
+             
         if CFG_OPENAIRE_SITE:
             from invenio.config import CFG_OPENAIRE_PORTAL_URL
             if CFG_OPENAIRE_PORTAL_URL:
@@ -881,6 +891,7 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
         # If user has logged in to ORCID through oauth2, store his ORCID id
         if uid > 0 and args['login_method'] == 'oauth2' and args['provider'] == 'orcid':
             from invenio.bibauthorid_webapi import get_pid_from_uid, add_orcid_to_pid
+            
 
             CFG_EXTERNAL_AUTHENTICATION['oauth2'].auth_user(None, None, req)
 
@@ -909,9 +920,19 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
             except InvenioWebAccessMailCookieError:
                 pass
         if not CFG_EXTERNAL_AUTH_USING_SSO:
+            ## chokri
+            
+            
             if (args['p_un'] is None or not args['login_method']) and (not args['login_method'] in ['openid', 'oauth1', 'oauth2']):
+
+                attempt=attempt+1
+                # if the number of attempt allowded is is reached
+                if (attempt>3):
+                    return webuser.page_not_authorized(req, CFG_SITE_SECURE_URL +( "/youraccount/login?ln=%s " % args['ln'])+("& %s" % attempt) )
+                    #raise Exception("le systéme est verouillé vous aver depasser la limite  des tentaives pérmisent")
+                   # raise apache.SERVER_RETURN(apache.HTTP_FORBIDDEN)
                 return page(title=_("Login"),
-                            body=webaccount.create_login_page_box(args['referer'], args['ln']),
+                            body=webaccount.create_login_page_box(args['referer'], args['ln'],attempt),
                             navtrail="""<a class="navtrail" href="%s/youraccount/display?ln=%s">""" % (CFG_SITE_SECURE_URL, args['ln']) + _("Your Account") + """</a>""",
                             description="%s Personalize, Main page" % CFG_SITE_NAME_INTL.get(args['ln'], CFG_SITE_NAME),
                             keywords="%s , personalize" % CFG_SITE_NAME_INTL.get(args['ln'], CFG_SITE_NAME),
@@ -944,19 +965,23 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
             else:
                 return self.display(req, form)
         else:
-            mess = None
+            
+            mess = None          
             if isinstance(msgcode, (str, unicode)):
                 # if msgcode is string, show it.
-                mess = msgcode
+                mess = msgcode + ( '%s' %attempt)
             elif msgcode in [21, 22, 23]:
-                mess = CFG_WEBACCESS_WARNING_MSGS[msgcode]
+                
+                mess = CFG_WEBACCESS_WARNING_MSGS[msgcode] +  ( '%s' %attempt)
             elif msgcode == 14:
+ 
                 if webuser.username_exists_p(args['p_un']):
-                    mess = CFG_WEBACCESS_WARNING_MSGS[15] % cgi.escape(args['login_method'])
-            if not mess:
-                mess = CFG_WEBACCESS_WARNING_MSGS[msgcode] % cgi.escape(args['login_method'])
-            act = CFG_SITE_SECURE_URL + '/youraccount/login%s' % make_canonical_urlargd({'ln' : args['ln'], 'referer' : args['referer']}, {})
-            return page(title=_("Login"),
+                    
+                    mess = CFG_WEBACCESS_WARNING_MSGS[15] % cgi.escape(args['login_method']) +  ( '%s' %attempt)
+            if not mess:               
+                mess = CFG_WEBACCESS_WARNING_MSGS[msgcode] % cgi.escape(args['login_method']) 
+            act = CFG_SITE_SECURE_URL + '/youraccount/login%s' % make_canonical_urlargd({'ln' : args['ln'],'attempt': attempt,'referer' : args['referer']}, {})
+            return page(title=_("ERREUR Login %s" %attempt),
                         body=webaccount.perform_back(mess, act, _("login"), args['ln']),
                         navtrail="""<a class="navtrail" href="%s/youraccount/display?ln=%s">""" % (CFG_SITE_SECURE_URL, args['ln']) + _("Your Account") + """</a>""",
                         description="%s Personalize, Main page" % CFG_SITE_NAME_INTL.get(args['ln'], CFG_SITE_NAME),
@@ -966,7 +991,7 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
                         secure_page_p = 1,
                         language=args['ln'],
                         lastupdated=__lastupdated__,
-                        navmenuid='youraccount')
+                        navmenuid='youraccount' )
 
     def register(self, req, form):
         args = wash_urlargd(form, {
@@ -1810,20 +1835,20 @@ class WebInterfaceYourGroupsPages(WebInterfaceDirectory):
                                                           ln=argd['ln'])
         elif argd['add_member']:
             body = webgroup.perform_request_add_member(uid=uid,
-                                                       grpID=argd['grpID'],
-                                                       user_id=argd['pending_member_id'],
-                                                       ln=argd['ln'])
+                                                          grpID=argd['grpID'],
+                                                          user_id=argd['pending_member_id'],
+                                                          ln=argd['ln'])
         elif argd['remove_moderator']:
             body = webgroup.perform_request_remove_moderator(uid=uid,
-                                                             grpID=argd['grpID'],
-                                                             member_id=argd['moderator_member_id'],
-                                                             ln=argd['ln'])
+                                                       grpID=argd['grpID'],
+                                                       member_id=argd['moderator_member_id'],
+                                                       ln=argd['ln'])
 
-	elif argd['add_moderator']:
+        elif argd['add_moderator']:
             body = webgroup.perform_request_add_moderator(uid=uid,
-                                                          grpID=argd['grpID'],
-                                                          user_id=argd['member_id'],
-                                                          ln=argd['ln'])
+                                                       grpID=argd['grpID'],
+                                                       user_id=argd['member_id'],
+                                                       ln=argd['ln'])
 
         else:
             body= webgroup.perform_request_manage_member(uid=uid,
