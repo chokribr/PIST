@@ -388,7 +388,6 @@ def create_register_page_box(referer='', ln=CFG_SITE_LANG):
            )
 
 ##  create_login_page_box(): ask for the user's email and password, for login into the system
-## chokri
 def create_login_page_box(referer='', ln=CFG_SITE_LANG, attempt=0):
     # List of referer regexep and message to print
 
