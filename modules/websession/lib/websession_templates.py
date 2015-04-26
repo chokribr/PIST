@@ -18,7 +18,6 @@
 __revision__ = "$Id$"
 
 import urllib
-import urlparse
 import cgi
 
 from invenio.config import \
@@ -41,7 +40,7 @@ from invenio.access_control_config import CFG_EXTERNAL_AUTH_USING_SSO, \
         CFG_OAUTH1_PROVIDERS, CFG_OPENID_AUTHENTICATION, \
         CFG_OAUTH2_AUTHENTICATION, CFG_OAUTH1_AUTHENTICATION
 
-from invenio.urlutils import make_canonical_urlargd, create_url, create_html_link, wash_url_argument, get_title_of_page
+from invenio.urlutils import make_canonical_urlargd, create_url, create_html_link
 from invenio.htmlutils import escape_html, nmtoken_from_string
 from invenio.messages import gettext_set_language, language_list_long
 from invenio.websession_config import CFG_WEBSESSION_GROUP_JOIN_POLICY, \
@@ -974,7 +973,7 @@ class Template:
                 {'x_url_open': '<a href="./login?ln=' + ln + '">',
                  'x_url_close': '</a>'}
         return out
-#   chokri
+
     def tmpl_login_form(self, ln, referer, internal, register_available, methods, selected_method, attempt, msg=None):
         """
         Displays a login form
@@ -988,13 +987,14 @@ class Template:
           - 'internal' *boolean* - If we are producing an internal authentication
 
           - 'register_available' *boolean* - If users can register freely in the system
-
+          
           - 'methods' *array* - The available authentication methods
-
+          
           - 'selected_method' *string* - The default authentication method
-
+          
           - 'msg' *string* - The message to print before the form, if needed
-          -attempt  *number* - The number of login attempt
+          
+          -'attempt' *int* - The number of login attempt
         """
 
         # load the right message language
@@ -1024,7 +1024,7 @@ class Template:
         else:
             out += "<p>%s</p>" % msg
 
-        out += """<form method="get" action="%(CFG_SITE_SECURE_URL)s/youraccount/login">
+        out += """<form method="post" action="%(CFG_SITE_SECURE_URL)s/youraccount/login">
                   <table>
                """ % {'CFG_SITE_SECURE_URL': CFG_SITE_SECURE_URL}
         if len(methods) - CFG_OPENID_AUTHENTICATION - CFG_OAUTH2_AUTHENTICATION - CFG_OAUTH1_AUTHENTICATION > 1:
@@ -1353,7 +1353,8 @@ class Template:
           - 'useloans' *boolean* - If loans are enabled for the user
 
           - 'usestats' *boolean* - If stats are enabled for the user
-          - 'attempt' *number* - the number of login attempt
+          
+          - 'attempt' *int* - the number of login attempt
 
         @note: with the update of CSS classes (cds.cds ->
             invenio.css), the variables useloans etc are not used in
@@ -1375,7 +1376,7 @@ class Template:
                      'guest_msg' : _("guest"),
                      'referer' : url_referer and ('&amp;referer=%s' % urllib.quote(url_referer)) or '',
                      'login' : _('login'),
-                     'attempt' : attempt,
+                     'attempt' : attempt
                    }
         else:
             out += """
