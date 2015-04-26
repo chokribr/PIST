@@ -170,9 +170,6 @@ def page_not_authorized(req, referer='', uid='', text='', navtrail='', ln=CFG_SI
                 req=req,
                 navmenuid=navmenuid)
 
-
-
-
 def getUid(req):
     """Return user ID taking it from the cookie of the request.
        Includes control mechanism for the guest users, inserting in
@@ -925,12 +922,10 @@ def create_userinfobox_body(req, uid, language="en"):
         attempt = 0
         
         args = req.get_args()
-     # extract the attempt argument if exist
+     # extract the attempt argument if exist from the request if there's other solution help
         if  str.find(args,'attempt=')>-1:
             attempt = int (float(args[str.index(args,'attempt=')+8]))
-            
-            
-           
+
         
         if req.is_https():
             url_referer = CFG_SITE_SECURE_URL + req.unparsed_uri
