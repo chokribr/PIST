@@ -929,8 +929,7 @@ class WebInterfaceYourAccountPages(WebInterfaceDirectory):
                 # if the number of attempt allowded is is reached
                 if (attempt>3):
                     return webuser.page_not_authorized(req, CFG_SITE_SECURE_URL +( "/youraccount/login?ln=%s " % args['ln'])+("& %s" % attempt) )
-                    #raise Exception("le systéme est verouillé vous aver depasser la limite  des tentaives pérmisent")
-                   # raise apache.SERVER_RETURN(apache.HTTP_FORBIDDEN)
+                    
                 return page(title=_("Login"),
                             body=webaccount.create_login_page_box(args['referer'], args['ln'],attempt),
                             navtrail="""<a class="navtrail" href="%s/youraccount/display?ln=%s">""" % (CFG_SITE_SECURE_URL, args['ln']) + _("Your Account") + """</a>""",
