@@ -7,7 +7,7 @@ python-magic==0.4.2
 http://www.reportlab.com/ftp/pyRXP-1.16-daily-unix.tar.gz
 numpy==1.7.0
 lxml==3.1.2
-mechanize==0.2.5
+mechanize==0.4.6
 python-Levenshtein==0.10.2
 PyStemmer==1.3.0
 https://py-editdist.googlecode.com/files/py-editdist-0.3.tar.gz
